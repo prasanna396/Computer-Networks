@@ -1,0 +1,14 @@
+class Solution {
+public:
+    int findComplement(int num){
+        int bitLen= 0;
+        int temp = num;
+        while (temp > 0) {
+            bitLen++;
+            temp >>= 1;
+        }
+
+        int mask = (1 << bitLen) - 1;
+        return num ^ mask;
+    }
+};

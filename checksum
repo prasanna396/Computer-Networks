@@ -1,0 +1,80 @@
+#include <stdio.h>
+
+unsigned short compute_checksum(unsigned short *arr, int n) {
+    unsigned int sum = 0;
+    for (int i = 0; i < n; i++) {
+        sum += arr[i];
+        if (sum & 0xFFFF0000) {
+            sum = (sum & 0xFFFF) + (sum >> 16);
+        }
+    }
+    return (unsigned short)(~sum & 0xFFFF);
+}
+
+int main() {
+    int n;
+    printf("Enter number of segments: ");
+    scanf("%d", &n);
+
+    unsigned short data[n];
+    printf("Enter %d data segments (16-bit hex/decimal):\n", n);
+    for (int i = 0; i < n; i++) {
+        scanf("%hx", &data[i]);
+    }
+
+    unsigned short checksum = compute_checksum(data, n);
+    printf("\n--- SENDER SIDE ---\n");
+    printf("Computed Checksum: %04X\n", checksum);
+
+    // Prepare transmitted data (Payload + Checksum)
+    unsigned short rx_data[n + 1];
+    for (int i = 0; i < n; i++) {
+        rx_data[i] = data[i];
+    }
+    rx_data[n] = checksum;
+
+    // Display Transmitted Data
+    printf("TRANSMITTED DATA PACKET: [ ");
+    for (int i = 0; i <= n; i++) {
+        printf("%04X ", rx_data[i]);
+    }
+    printf("]\n");
+
+    // Error simulation
+    int choice;
+    printf("\nSimulate error? (1 for Yes, 0 for No): ");
+    scanf("%d", &choice);
+    if (choice == 1) {
+        int idx;
+        printf("Enter index to modify (0 to %d): ", n);
+        scanf("%d", &idx);
+        rx_data[idx] ^= 0x0001;
+        printf("Modified packet segment %d to %04X\n", idx, rx_data[idx]);
+    }
+
+    printf("\n--- RECEIVER SIDE ---\n");
+    unsigned int rx_sum = 0;
+    for (int i = 0; i <= n; i++) {
+        rx_sum += rx_data[i];
+        if (rx_sum & 0xFFFF0000) {
+            rx_sum = (rx_sum & 0xFFFF) + (rx_sum >> 16);
+        }
+    }
+
+    unsigned short final_check = (unsigned short)(~rx_sum & 0xFFFF);
+    if (final_check == 0) {
+        printf("Transmission is error free.\n");
+        
+        // Extract and display data
+        printf("EXTRACTED DATA PAYLOAD: [ ");
+        for (int i = 0; i < n; i++) {
+            printf("%04X ", rx_data[i]); // Original data size is n
+        }
+        printf("]\n");
+    } else {
+        printf("Data is corrupted.\n");
+        printf("EXTRACTED DATA PAYLOAD: DISCARDED (Checksum verification failed)\n");
+    }
+
+    return 0;
+}

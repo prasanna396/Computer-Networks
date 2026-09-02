@@ -1,0 +1,12 @@
+24bcs055@mepcolinux ex3]$./queue
+[Producer] Produced item: 10
+[Consumer] Consumed item: 10
+[Producer] Produced item: 20
+[Producer] Produced item: 30
+[Consumer] Consumed item: 20
+[Producer] Produced item: 40
+[Consumer] Consumed item: 30
+[Producer] Produced item: 50
+[Consumer] Consumed item: 40
+[Consumer] Consumed item: 50
+Message queue destroyed. Program finished.

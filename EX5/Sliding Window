@@ -1,0 +1,235 @@
+#include <stdio.h>
+
+void printTableHeadings()
+{
+    printf("\n%-18s | %-16s | %-12s | %-15s\n", "Current Frame", "Action Taken", "Frame Status", "Total Tx Count");
+    printf("-------------------|------------------|--------------|----------------\n");
+}
+
+void stopAndWait(int n, int lost)
+{
+    int i = 1;
+    int transmissions = 0;
+    char frameStr[20];
+
+    printf("\n====================================================================\n");
+    printf(" STOP-AND-WAIT SIMULATION RUN (STEP-BY-STEP) \n");
+    printf("====================================================================\n");
+    printTableHeadings();
+
+    while (i <= n)
+    {
+        sprintf(frameStr, "Frame %d", i);
+        transmissions++;
+
+        if (i == lost)
+        {
+            printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Send Frame", "Lost/Dropped", transmissions);
+            printf("%-18s | %-16s | Frame %-7d | %-15d\n", "---", "Timeout Detected", i, transmissions);
+            transmissions++;
+            printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Retransmit Frame", "Recovered OK", transmissions);
+            lost = 0; // Clear drop flag after recovery
+        }
+        else
+        {
+            printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Send Frame", "ACK Received", transmissions);
+        }
+        i++;
+    }
+    printf("--------------------------------------------------------------------\n");
+    printf("SUCCESS: All frames delivered. Final Transmission Count = %d\n", transmissions);
+    printf("====================================================================\n");
+}
+
+void goBackN(int n, int window, int lost)
+{
+    int i = 1; // Current frame tracking (base of window)
+    int transmissions = 0;
+    char frameStr[20];
+
+    printf("\n====================================================================\n");
+    printf(" GO-BACK-N SIMULATION RUN (STEP-BY-STEP) \n");
+    printf("====================================================================\n");
+    printTableHeadings();
+
+    while (i <= n)
+    {
+        int end = i + window - 1;
+        if (end > n) end = n;
+
+        int hit_loss_in_window = 0;
+
+        // Phase 1: Try sending all frames currently available inside the transmission window
+        for (int k = i; k <= end; k++)
+        {
+            sprintf(frameStr, "Frame %d", k);
+            transmissions++;
+
+            if (k == lost)
+            {
+                printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Send Frame", "Lost/Dropped", transmissions);
+                hit_loss_in_window = 1;
+            }
+            else
+            {
+                if (hit_loss_in_window)
+                {
+                    // Even if sent, these frames will be discarded by receiver because an earlier frame was lost
+                    printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Send Frame", "Discarded", transmissions);
+                }
+                else
+                {
+                    printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Send Frame", "Sent", transmissions);
+                }
+            }
+        }
+
+        // Phase 2: Resolve the feedback. If a loss happened, we must time out and roll back
+        if (lost >= i && lost <= end)
+        {
+            printf("%-18s | %-16s | Frame %-7d | %-15d\n", "---", "Timeout Detected", lost, transmissions);
+
+            // Go back to the lost frame and retransmit everything from that point onwards in the window
+            for (int k = lost; k <= end; k++)
+            {
+                sprintf(frameStr, "Frame %d", k);
+                transmissions++;
+                printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Retransmit Frame", k == lost ? "Recovered OK" : "Sent", transmissions);
+            }
+
+            // Slide window past this successfully recovered batch
+            i = end + 1;
+            lost = 0; // Clear drop flag
+        }
+        else
+        {
+            // All frames in this window segment were acknowledged successfully
+            for (int k = i; k <= end; k++)
+            {
+                sprintf(frameStr, "Frame %d", k);
+                printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "ACK Received", "OK", transmissions);
+            }
+            i = end + 1;
+        }
+    }
+    printf("--------------------------------------------------------------------\n");
+    printf("SUCCESS: All frames delivered. Final Transmission Count = %d\n", transmissions);
+    printf("====================================================================\n");
+}
+
+void selectiveRepeat(int n, int window, int lost)
+{
+    int i = 1;
+    int transmissions = 0;
+    char frameStr[20];
+
+    printf("\n====================================================================\n");
+    printf(" SELECTIVE REPEAT SIMULATION RUN (STEP-BY-STEP) \n");
+    printf("====================================================================\n");
+    printTableHeadings();
+
+    while (i <= n)
+    {
+        int end = i + window - 1;
+        if (end > n) end = n;
+
+        int loss_occurred_here = 0;
+
+        // Step 1: Send the batch of frames in the current window step
+        for (int k = i; k <= end; k++)
+        {
+            sprintf(frameStr, "Frame %d", k);
+            transmissions++;
+
+            if (k == lost)
+            {
+                printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Send Frame", "Lost/Dropped", transmissions);
+                loss_occurred_here = 1;
+            }
+            else
+            {
+                printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Send Frame", "ACK Received", transmissions);
+            }
+        }
+
+        // Step 2: Handle retransmission for only the corrupted frame if it fell inside this window
+        if (loss_occurred_here)
+        {
+            sprintf(frameStr, "Frame %d", lost);
+            printf("%-18s | %-16s | %-12s | %-15d\n", "---", "NACK / No ACK", "Buffered Rem", transmissions);
+
+            transmissions++;
+            printf("%-18s | %-16s | %-12s | %-15d\n", frameStr, "Retransmit Frame", "Recovered OK", transmissions);
+            lost = 0; // Clear drop flag
+        }
+
+        i = end + 1;
+    }
+    printf("--------------------------------------------------------------------\n");
+    printf(" Final Transmission Count = %d\n", transmissions);
+    printf("====================================================================\n");
+}
+
+int main()
+{
+    int choice;
+    int n, window, lost;
+
+    while (1)
+    {
+        printf("\n====================================\n");
+        printf(" SLIDING WINDOW PROTOCOL\n");
+        printf("====================================\n");
+        printf("1. Go-Back-N\n");
+        printf("2. Selective Repeat\n");
+        printf("3. Stop-and-Wait\n");
+        printf("4. Exit Program\n");
+        printf("====================================\n");
+        printf("Enter your choice: ");
+
+        if (scanf("%d", &choice) != 1)
+        {
+            printf("Invalid text input.\n");
+            return 1;
+        }
+
+        if (choice == 4)
+        {
+            printf("Exiting\n");
+            break;
+        }
+
+        if (choice < 1 || choice > 4)
+        {
+            printf("Invalid option selected.\n");
+            continue;
+        }
+
+        printf("Enter number of frames: ");
+        if (scanf("%d", &n) != 1) return 1;
+
+        if (choice != 3)
+        {
+            printf("Enter window size: ");
+            if (scanf("%d", &window) != 1) return 1;
+            if (window <= 0 || window > n)
+            {
+                printf("Error: Invalid window size\n");
+                continue;
+            }
+        }
+
+        printf("Enter frame number to be lost: ");
+        if (scanf("%d", &lost) != 1) return 1;
+        if (lost < 0 || lost > n)
+        {
+            printf("Error: Invalid.\n");
+            continue;
+        }
+
+        if (choice == 1) goBackN(n, window, lost);
+        else if (choice == 2) selectiveRepeat(n, window, lost);
+        else if (choice == 3) stopAndWait(n, lost);
+    }
+    return 0;
+}
